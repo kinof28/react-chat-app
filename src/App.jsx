@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { db } from "./config/firebase";
 import { collection, addDoc, query, onSnapshot } from "firebase/firestore";
-
+import { LocalNotifications } from "@capacitor/local-notifications";
 import "./App.css";
 
 function App() {
@@ -10,23 +10,36 @@ function App() {
 
   useEffect(() => {
     const q = query(collection(db, "messages"));
-    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+    const unsubscribe = onSnapshot(q, async (querySnapshot) => {
       let temp = [];
       querySnapshot.forEach((doc) => {
         temp.push({ ...doc.data(), id: doc.id });
       });
       setMessages(temp);
+      try {
+        await LocalNotifications.schedule({
+          notifications: [
+            {
+              id: temp.length,
+              title: "new message received",
+              body: temp[temp.length - 1].message,
+            },
+          ],
+        });
+      } catch (error) {
+        console.log("some error went in local notification setting", error);
+      }
     });
     return () => unsubscribe();
   }, []);
 
   const handleSubmitting = async () => {
     try {
-      const docRef = await addDoc(collection(db, "messages"), {
+      await addDoc(collection(db, "messages"), {
         sender: "ME",
         message,
       });
-      console.log("Document written with ID: ", docRef.id);
+      setMessage("");
     } catch (e) {
       console.error("Error adding document: ", e);
     }
